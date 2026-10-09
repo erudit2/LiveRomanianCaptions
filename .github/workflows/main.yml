@@ -1,0 +1,24 @@
+
+name: Build APK
+on:
+  workflow_dispatch:
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: android-actions/setup-android@v3
+      - run: |
+          yes | sdkmanager --licenses || true
+          sdkmanager "platforms;android-36" "build-tools;36.0.0"
+      - run: unzip -q LiveRomanianCaptions_MINIMAL_v2_source.zip -d src
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.13'
+      - run: |
+          cd "$(dirname "$(find src \( -name settings.gradle -o -name settings.gradle.kts \) | head -1)")"
+          gradle assembleDebug
+      - uses: actions/upload-artifact@v4
+        with:
+          name: APK
+          path: src/**/build/outputs/apk/debug/*.apk
