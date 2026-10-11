@@ -1,27 +1,57 @@
-
-
-
-
+```yaml
 name: Build APK
+
 on:
   workflow_dispatch:
+  push:
+    paths:
+      - 'LiveRomanianCaptions_MINIMAL_v2_source.zip'
+      - '.github/workflows/main.yml'
+
 jobs:
   build:
     runs-on: ubuntu-latest
+
     steps:
-      - uses: actions/checkout@v4
-    
-      - run: |
+      - name: Get repository
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Install Android SDK
+        run: |
           yes | sdkmanager --licenses || true
-          sdkmanager "platforms;android-36" "build-tools;36.0.0"
-      - run: unzip -q LiveRomanianCaptions_MINIMAL_v2_source.zip -d src
-      - uses: gradle/actions/setup-gradle@v4
+          sdkmanager "platform-tools" "platforms;android-36" "build-tools;36.0.0"
+
+      - name: Extract project
+        run: |
+          mkdir -p source
+          unzip -q LiveRomanianCaptions_MINIMAL_v2_source.zip -d source
+          SETTINGS=$(find source -type f \( -name settings.gradle -o -name settings.gradle.kts \) -print -quit)
+          if [ -z "$SETTINGS" ]; then
+            echo "Nu am găsit settings.gradle în arhivă."
+            exit 1
+          fi
+          echo "PROJECT_DIR=$(dirname "$SETTINGS")" >> "$GITHUB_ENV"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.13'
-      - run: |
-          cd "$(dirname "$(find src \( -name settings.gradle -o -name settings.gradle.kts \) | head -1)")"
-          gradle assembleDebug
-      - uses: actions/upload-artifact@v4
+
+      - name: Build APK
+        run: gradle assembleDebug
+        working-directory: ${{ env.PROJECT_DIR }}
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
         with:
-          name: APK
-          path: src/**/build/outputs/apk/debug/*.apk
+          name: LiveRomanianCaptions-debug
+          path: '**/build/outputs/apk/debug/*.apk'
+          if-no-files-found: error
+          retention-days: 30
+```
